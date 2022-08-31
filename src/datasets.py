@@ -101,7 +101,7 @@ class MainDataModule(pl.LightningDataModule):
 
     def on_after_batch_transfer(self, batch, dataloader_idx):
         # TODO batch 1
-        if batch.shape[0] * batch.shape[1] > 500:
+        if batch.shape[0] * batch.shape[1] > 5000:
             batch = batch[
                 random.choices(
                     list(range(batch.shape[0])), k=int(batch.shape[0] * 0.5)
@@ -109,7 +109,7 @@ class MainDataModule(pl.LightningDataModule):
                 :,
             ]
         batch = batch.unfold(1, min(1024, int(batch.shape[1] / 2)), 1)
-        batch = batch[(batch != 3).logical_or(batch != 1).any(axis=2)]
+        batch = batch[(batch != 3).logical_and(batch != 1).any(axis=2)]
 
         return batch[:, :-1], batch[:, -1]
 
@@ -138,9 +138,11 @@ class TestDataSet(torch.utils.data.Dataset):
     def __init__(self):
         super().__init__()
         self.data = [
-            torch.full((5,), random.choice([0, 1, 2, 3, 4, 5]), dtype=torch.int32)
+            torch.randint(0, 5, (5,), dtype=torch.int32)
             for x in range(10000)
         ]
+        for x in self.data:
+            x[-1] = x[1] + x[-2]
 
     def __len__(self):
         return len(self.data)
