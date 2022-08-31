@@ -139,10 +139,10 @@ class TestDataSet(torch.utils.data.Dataset):
         super().__init__()
         self.data = [
             torch.randint(0, 5, (5,), dtype=torch.int32)
-            for x in range(10000)
+            for x in range(100000)
         ]
         for x in self.data:
-            x[-1] = x[1] + x[-2]
+            x[-1] = x[0] + x[1] * x[-2]
 
     def __len__(self):
         return len(self.data)

@@ -10,25 +10,31 @@ from typing import Optional
 import datasets
 import models
 from pytorch_lightning.strategies import DDPStrategy
+from pytorch_lightning.callbacks import LearningRateMonitor
 
 if __name__ == "__main__":
     main_dm = datasets.MainDataModule(
         datasets.TrainDataSet("data/ru_small.bin", "data/sample_locs.npy", 8), train_bsz=8
     )
-    test_ds = datasets.TestDataSet()
-    test_dl = DataLoader(test_ds, batch_size=8)
+    # test_ds = datasets.TestDataSet()
+    # test_dl = DataLoader(test_ds, batch_size=256, num_workers=8)
 
     # baseline_model = models.BaselineModel()
-    encoder_model = models.EncoderModel(vocab_size=8000, learning_rate=1e-2)
+    encoder_model = models.EncoderModel(vocab_size=8000, learning_rate=1e-4)
+
+    lr_monitor = LearningRateMonitor(logging_interval='step')
 
     trainer = pl.Trainer(
         # fast_dev_run=1,
-        limit_train_batches=10000,
-        max_epochs=2,
+        limit_train_batches=1000000,
+        max_epochs=20,
         accelerator="gpu",
         auto_lr_find=True,
-        devices=1,
-        # strategy=DDPStrategy(find_unused_parameters=True),
+        devices=2,
+        strategy=DDPStrategy(find_unused_parameters=True),
+        callbacks=[lr_monitor],
+        log_every_n_steps=10,
+        precision=16
     )
 
     # lr_finder = trainer.tuner.lr_find(encoder_model, datamodule=main_dm, num_training=1000)
@@ -39,24 +45,3 @@ if __name__ == "__main__":
     # trainer.fit(model=baseline_model, datamodule=main_dm)
     trainer.fit(model=encoder_model, datamodule=main_dm)
     # trainer.fit(model=encoder_model, train_dataloaders=test_dl)
-
-    with torch.no_grad():
-        tmp = encoder_model(torch.tensor([[1]]))
-        # tmp = encoder_model(torch.tensor([[5,4,4,2]]))
-    print(tmp.argmax())
-    # print(tmp[108])
-    print(tmp)
-
-    with torch.no_grad():
-        tmp = encoder_model(torch.tensor([[1, 479, 1301, 70, 99]]))
-        # tmp = encoder_model(torch.tensor([[5,4,4,2]]))
-    print(tmp.argmax())
-    # print(tmp[835])
-    print(tmp)
-
-    with torch.no_grad():
-        tmp = encoder_model(torch.tensor([[1, 479, 1301, 70, 99, 835, 7]]))
-        # tmp = encoder_model(torch.tensor([[5,4,4,2]]))
-    print(tmp.argmax())
-    # print(tmp[49])
-    print(tmp)
