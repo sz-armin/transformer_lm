@@ -107,21 +107,21 @@ class EncoderModel(pl.LightningModule):
         )  # why can't we reuse the weights?
 
     def forward(self, x):
-        # mask = x == 3
-        mask = None
+        mask = x == 3
+        # mask = None
         res = (
             self.encoder(
                 self.embedding(x) + self.pos_emb(x), src_key_padding_mask=mask
-            ).sum(-2)
+            ).amax(-2)
             @ self.w.T
         )
 
         return res
 
     def training_step(self, batch, batch_idx):
-        # x, y = batch
-        x = batch[:, :-1]
-        y = batch[:, -1]
+        x, y = batch
+        # x = batch[:, :-1]
+        # y = batch[:, -1]
         # print(x, y)
 
         y = nn.functional.one_hot(
@@ -156,9 +156,9 @@ class EncoderModel(pl.LightningModule):
         self.log("val_loss", loss, prog_bar=True, sync_dist=True)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.learning_rate)
-        lr_scheduler = torch.optim.lr_scheduler.StepLR(
-            optimizer, step_size=1, gamma=0.1
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+            optimizer, T_max=2
         )
 
         return [optimizer], [lr_scheduler]
