@@ -7,19 +7,22 @@ import math
 class LearnedPosEmbedding(nn.Module):
     def __init__(self, num_embeddings=1026, embedding_dim=512):
         self.num_embeddings = num_embeddings + 1
-        self.new_pad_idx = self.num_embeddings - 1
+        # self.new_pad_idx = self.num_embeddings - 1
+        self.internal_pad_idx = 0
         super().__init__()
         self.embedding = nn.Embedding(
-            self.num_embeddings, embedding_dim, padding_idx=self.new_pad_idx
+            self.num_embeddings, embedding_dim, padding_idx=self.internal_pad_idx
         )
 
     def forward(self, x, padding_idx=3):
-        pos = [
-            [self.new_pad_idx for _ in range(len(row[row == 3]))]
-            + list(range(len(row[row != 3] + 1)))
-            for row in x
-        ]
-        pos = torch.tensor(pos, device=x.device)
+        # pos = [
+        #     [self.new_pad_idx for _ in range(len(row[row == 3]))]
+        #     + list(range(len(row[row != 3] + 1)))
+        #     for row in x
+        # ]
+        # pos = torch.tensor(pos, device=x.device)
+        mask = x.ne(padding_idx)
+        pos = torch.cumsum(mask, dim=1)
 
         return self.embedding(pos)
 
@@ -156,22 +159,20 @@ class EncoderModel(pl.LightningModule):
 
         return loss
 
-    # def validation_step(self, batch, batch_idx):
-    #     x, y = batch
-    #     y = nn.functional.one_hot(
-    #         y.clone().detach().long(), num_classes=self.vocab_size
-    #     ).float()
-    #     y_hat = self(x)
-    #     loss = nn.functional.cross_entropy(y_hat, y, reduction="mean")
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        y = y.long()
+        y_hat = self(x)
+        loss = nn.functional.cross_entropy(y_hat, y, reduction="mean")
 
-    #     self.log("val_loss", loss, prog_bar=True, sync_dist=True)
+        self.log("val_loss", loss, prog_bar=True, sync_dist=True)
 
     def configure_optimizers(self):
 
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.learning_rate)
-        # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        #     optimizer, T_0=75, T_mult=2
-        # )
-        lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.95)
+        lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
+            optimizer, T_0=200, T_mult=2
+        )
+        # lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.999)
 
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]

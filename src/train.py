@@ -14,7 +14,7 @@ from pytorch_lightning.callbacks import LearningRateMonitor
 
 if __name__ == "__main__":
     main_dm = datasets.MainDataModule(
-        datasets.TrainDataSet("data/ru_small.bin", "data/sample_locs.npy", 8), train_bsz=8
+        datasets.TrainDataSet("data/ru_small.bin", "data/sample_locs.npy", 16), train_bsz=8
     )
     # test_ds = datasets.TestDataSet()
     # test_dl = DataLoader(test_ds, batch_size=256, num_workers=8)
@@ -26,15 +26,17 @@ if __name__ == "__main__":
 
     trainer = pl.Trainer(
         # fast_dev_run=1,
-        limit_train_batches=1000000,
-        max_epochs=20,
+        limit_train_batches=100,
+        max_epochs=1,
         accelerator="gpu",
         auto_lr_find=True,
         devices=2,
         strategy=DDPStrategy(find_unused_parameters=True),
         callbacks=[lr_monitor],
         log_every_n_steps=10,
-        precision=16
+        # profiler="advanced",
+        # precision=16,
+        # num_sanity_val_steps=0
     )
 
     # lr_finder = trainer.tuner.lr_find(encoder_model, datamodule=main_dm, num_training=1000)
