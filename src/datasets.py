@@ -96,19 +96,16 @@ class MainDataModule(pl.LightningDataModule):
             prefetch_factor=4,
         )
 
-    # def transfer_batch_to_device(batch, device, dataloader_idx):
-    #     return [torch.as_tensor(x, device=device) for x in batch]
-
     def on_after_batch_transfer(self, batch, dataloader_idx):
         # TODO batch 1
-        if batch.shape[0] * batch.shape[1] > 5000:
+        if batch.shape[0] * batch.shape[1] > 1000:
             batch = batch[
                 random.choices(
-                    list(range(batch.shape[0])), k=int(batch.shape[0] * 0.5)
+                    list(range(batch.shape[0])), k=int(1000/batch.shape[1])
                 ),
                 :,
             ]
-        batch = batch.unfold(1, min(1024, int(batch.shape[1] / 2)), 1)
+        batch = batch.unfold(1, min(256, int(batch.shape[1] / 2)), 1)
         batch = batch[(batch != 3).logical_and(batch != 1).any(axis=2)]
 
         return batch[:, :-1], batch[:, -1]
@@ -116,13 +113,13 @@ class MainDataModule(pl.LightningDataModule):
     def _collate_wrapper(self, batch):
         # TODO filter large batches
         b_max_len = len(max(batch, key=len))
-        if b_max_len > 9999:
-            print(b_max_len, max(batch, key=len))
+        # if b_max_len > 9999:
+        #     print(b_max_len, max(batch, key=len))
         batch = np.array(
             [
                 np.pad(
                     x,
-                    (2 * min(1024, b_max_len) - len(x), 0),
+                    (2 * min(256, b_max_len) - len(x), 0),
                     "constant",
                     constant_values=(3),
                 )
@@ -131,7 +128,7 @@ class MainDataModule(pl.LightningDataModule):
         )
         # faster right_padding: batch = np.column_stack(list(itertools.zip_longest(*l, fillvalue=3)))
         # TODO type
-        return torch.as_tensor(batch, dtype=torch.int32)
+        return torch.as_tensor(batch, dtype=torch.long)
 
 
 class TestDataSet(torch.utils.data.Dataset):

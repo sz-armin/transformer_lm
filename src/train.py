@@ -10,40 +10,36 @@ from typing import Optional
 import datasets
 import models
 from pytorch_lightning.strategies import DDPStrategy
-from pytorch_lightning.callbacks import LearningRateMonitor
+from pytorch_lightning.callbacks import LearningRateMonitor, StochasticWeightAveraging
 
 if __name__ == "__main__":
     main_dm = datasets.MainDataModule(
-        datasets.TrainDataSet("data/ru_small.bin", "data/sample_locs.npy", 16), train_bsz=8
+        datasets.TrainDataSet("data/ru_small.bin", "data/sample_locs.npy", 4), train_bsz=1
     )
     # test_ds = datasets.TestDataSet()
     # test_dl = DataLoader(test_ds, batch_size=256, num_workers=8)
 
-    # baseline_model = models.BaselineModel()
-    encoder_model = models.EncoderModel(vocab_size=8000, learning_rate=1e-4)
+    encoder_model = models.EncoderModel(vocab_size=16000, learning_rate=1e-0)
 
     lr_monitor = LearningRateMonitor(logging_interval='step')
 
     trainer = pl.Trainer(
         # fast_dev_run=1,
-        limit_train_batches=100,
+        limit_train_batches=9999999,
         max_epochs=1,
         accelerator="gpu",
         auto_lr_find=True,
-        devices=2,
+        devices=4,
         strategy=DDPStrategy(find_unused_parameters=True),
         callbacks=[lr_monitor],
-        log_every_n_steps=10,
+        # callbacks=[lr_monitor, StochasticWeightAveraging(swa_lrs=1e-5)],
+        log_every_n_steps=250,
         # profiler="advanced",
-        # precision=16,
-        # num_sanity_val_steps=0
+        precision=16,
+        # detect_anomaly=True,
+        limit_val_batches=1000,
+        val_check_interval=0.02
     )
 
-    # lr_finder = trainer.tuner.lr_find(encoder_model, datamodule=main_dm, num_training=1000)
-    # print(lr_finder.suggestion())
-    # fig = lr_finder.plot(suggest=True)
-    # fig.savefig("1.png")
-
-    # trainer.fit(model=baseline_model, datamodule=main_dm)
     trainer.fit(model=encoder_model, datamodule=main_dm)
     # trainer.fit(model=encoder_model, train_dataloaders=test_dl)
