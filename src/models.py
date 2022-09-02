@@ -118,11 +118,11 @@ class EncoderModel(pl.LightningModule):
         self.encoder = nn.TransformerEncoder(
             self.encoder_layer,
             norm=self.layernorm,
-            num_layers=8,
-            # enable_nested_tensor=True,
+            num_layers=12,
         )
 
-        self.linear = nn.Linear(self.d_model, self.vocab_size)
+        self.linear = nn.Linear(self.d_model, self.vocab_size, bias=False)
+        self.linear.weight = self.embedding.weight # Share embeddings
 
     def forward(self, x):
         mask = (x == 3)
@@ -131,25 +131,22 @@ class EncoderModel(pl.LightningModule):
         x = self.encoder(x, src_key_padding_mask=mask)
         x = self.dropout(x)
 
-        x[mask] = 0
+        # x = torch.nan_to_num(x)
 
-        x = x.sum(-2)
+        x = x.nanmean(-2) # Pooling
         x = self.linear(x)
 
         return x
 
     def training_step(self, batch, batch_idx):
-        if True:
-            x, y = batch
-        else:
-            x = batch[:, :-1]
-            y = batch[:, -1]
+        x, y = batch
 
         y_hat = self(x)
 
         loss = nn.functional.cross_entropy(y_hat, y, reduction="mean")
 
         self.log("train_loss", loss, logger=True)
+        self.log("pp", torch.exp(loss), logger=True)
         self.log("bsz", float(x.shape[0]), logger=True)
         self.log("wpb", float(x.shape[0]*x.shape[1]), logger=True)
 

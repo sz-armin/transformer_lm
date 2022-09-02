@@ -14,7 +14,7 @@ from pytorch_lightning.callbacks import LearningRateMonitor, StochasticWeightAve
 
 if __name__ == "__main__":
     main_dm = datasets.MainDataModule(
-        datasets.TrainDataSet("data/ru_small.bin", "data/sample_locs.npy", 4), train_bsz=1
+        datasets.TrainDataSet("data/ru_small.bin", "data/sample_locs.npy", 8), train_bsz=16
     )
     # test_ds = datasets.TestDataSet()
     # test_dl = DataLoader(test_ds, batch_size=256, num_workers=8)
@@ -26,19 +26,20 @@ if __name__ == "__main__":
     trainer = pl.Trainer(
         # fast_dev_run=1,
         limit_train_batches=9999999,
-        max_epochs=1,
+        max_epochs=5,
         accelerator="gpu",
         auto_lr_find=True,
         devices=4,
         strategy=DDPStrategy(find_unused_parameters=True),
         callbacks=[lr_monitor],
         # callbacks=[lr_monitor, StochasticWeightAveraging(swa_lrs=1e-5)],
-        log_every_n_steps=250,
+        log_every_n_steps=100,
         # profiler="advanced",
         precision=16,
         # detect_anomaly=True,
-        limit_val_batches=1000,
-        val_check_interval=0.02
+        limit_val_batches=750,
+        val_check_interval=0.1,
+        max_time="00:06:00:00",
     )
 
     trainer.fit(model=encoder_model, datamodule=main_dm)

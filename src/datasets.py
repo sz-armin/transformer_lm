@@ -40,6 +40,8 @@ class MainDataModule(pl.LightningDataModule):
         self.num_workers = self.dataset.num_workers
         self.train_bsz=train_bsz
 
+        self.max_context = 256
+
     def prepare_data(self):
         pass
 
@@ -72,7 +74,7 @@ class MainDataModule(pl.LightningDataModule):
     def val_dataloader(self):
         return DataLoader(
             self.dataset_val,
-            batch_size=2,
+            batch_size=self.train_bsz,
             collate_fn=self._collate_wrapper,
             num_workers=self.num_workers,
             prefetch_factor=4,
@@ -97,29 +99,29 @@ class MainDataModule(pl.LightningDataModule):
         )
 
     def on_after_batch_transfer(self, batch, dataloader_idx):
+        batch = batch.unfold(1, min(self.max_context, int(batch.shape[1] / 2)), 1)
+        batch = batch[(batch != 3).logical_and(batch != 1).any(axis=2)]
+
         # TODO batch 1
-        if batch.shape[0] * batch.shape[1] > 1000:
+        # Bucketing
+        if batch.shape[0] * batch.shape[1] > 30000:
             batch = batch[
                 random.choices(
-                    list(range(batch.shape[0])), k=int(1000/batch.shape[1])
+                    list(range(batch.shape[0])), k=int(30000/batch.shape[1])
                 ),
                 :,
             ]
-        batch = batch.unfold(1, min(256, int(batch.shape[1] / 2)), 1)
-        batch = batch[(batch != 3).logical_and(batch != 1).any(axis=2)]
 
         return batch[:, :-1], batch[:, -1]
 
     def _collate_wrapper(self, batch):
         # TODO filter large batches
         b_max_len = len(max(batch, key=len))
-        # if b_max_len > 9999:
-        #     print(b_max_len, max(batch, key=len))
         batch = np.array(
             [
                 np.pad(
                     x,
-                    (2 * min(256, b_max_len) - len(x), 0),
+                    (2 * min(self.max_context, b_max_len) - len(x), 0),
                     "constant",
                     constant_values=(3),
                 )
