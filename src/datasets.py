@@ -13,6 +13,7 @@ class TrainDataSet(torch.utils.data.Dataset):
         self.sample_locs = np.load(locs_path)
         self.file_handles = [open(file_path, "rb") for _ in range(num_workers)]
         self.file_handles.append(open(file_path, "rb"))
+        self.max_token = 2500
 
     def __len__(self):
         return len(self.sample_locs)
@@ -47,7 +48,7 @@ class MainDataModule(pl.LightningDataModule):
 
     def setup(self, stage: Optional[str] = None):
         if stage == "fit" or stage is None:
-            train_len = int(len(self.dataset) * 0.8)
+            train_len = int(len(self.dataset) * 0.95)
             self.dataset_train, self.dataset_val = random_split(
                 self.dataset,
                 [train_len, len(self.dataset) - train_len],
@@ -106,8 +107,8 @@ class MainDataModule(pl.LightningDataModule):
         # Bucketing
         if batch.shape[0] * batch.shape[1] > 30000:
             batch = batch[
-                random.choices(
-                    list(range(batch.shape[0])), k=int(30000/batch.shape[1])
+                random.sample(
+                    range(batch.shape[0]), k=int(30000/batch.shape[1])
                 ),
                 :,
             ]
@@ -117,11 +118,15 @@ class MainDataModule(pl.LightningDataModule):
     def _collate_wrapper(self, batch):
         # TODO filter large batches
         b_max_len = len(max(batch, key=len))
+        if b_max_len <= self.max_context:
+            max_pad = 2*b_max_len
+        else:
+            max_pad = b_max_len + self.max_context
         batch = np.array(
             [
                 np.pad(
                     x,
-                    (2 * min(self.max_context, b_max_len) - len(x), 0),
+                    (max_pad - len(x), 0),
                     "constant",
                     constant_values=(3),
                 )
