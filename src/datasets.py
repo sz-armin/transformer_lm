@@ -109,8 +109,7 @@ class MainDataModule(pl.LightningDataModule):
             batch = batch[
                 random.sample(
                     range(batch.shape[0]), k=int(30000/batch.shape[1])
-                ),
-                :,
+                )
             ]
 
         return batch[:, :-1], batch[:, -1]
