@@ -1,4 +1,4 @@
-import torch
+import torch, random
 from torch import nn
 import pytorch_lightning as pl
 import apex
@@ -205,6 +205,140 @@ class EncoderModel(pl.LightningModule):
             self.d_model ** (-0.5)
             * min(current_step ** (-0.5), current_step * self.warmup ** (-1.5))
         )
+
+    # def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
+    #     pass
+        # optimizer.zero_grad(set_to_none=True)
+
+
+class DecoderModel(pl.LightningModule):
+    def __init__(
+        self,
+        learning_rate=1e-4,
+        d_model=1024,
+        vocab_size=8000,
+        dropout=0.1,
+        warmup=1000,
+        lr_factor=1,
+    ):
+        super().__init__()
+        self.save_hyperparameters()
+
+        self.learning_rate = learning_rate
+        self.warmup = warmup
+        self.lr_factor = lr_factor
+        self.dropout_rate = dropout
+        self.d_model = d_model
+        self.vocab_size = vocab_size
+
+        self.dropout = nn.Dropout(self.dropout_rate)
+        self.layernorm = apex.normalization.FusedLayerNorm(self.d_model)
+
+        self.embedding = nn.Embedding(
+            self.vocab_size, self.d_model, padding_idx=3, scale_grad_by_freq=False
+        )
+        self.pos_emb = LearnedPosEmbedding(self.vocab_size, self.d_model)
+
+        self.decoder_layer = nn.TransformerEncoderLayer(
+            d_model=self.d_model,
+            dim_feedforward=self.d_model * 4,
+            nhead=16,
+            dropout=self.dropout_rate,
+            norm_first=True,  # Disable Fast Path for AMP compatibility
+            batch_first=True,
+            activation="gelu",
+        )
+        self.decoder = nn.TransformerEncoder(
+            self.decoder_layer,
+            norm=self.layernorm,
+            num_layers=24,
+        )
+
+        self.linear = nn.Linear(self.d_model, self.vocab_size, bias=True)
+        # self.embedding.weight = self.linear.weight
+
+        self.linear = nn.Sequential(
+            self.linear,
+        )
+
+    def forward(self, x):
+        casual_mask = torch.triu(torch.ones(x.shape[1],x.shape[1], dtype=torch.bool, device=x.device.type), diagonal=1)
+
+        x = self.dropout(self.embedding(x)) + self.dropout(self.pos_emb(x))
+        x = self.decoder(x, mask=casual_mask)
+        x = self.dropout(x)
+
+        x = self.linear(x)
+
+        return x
+
+    def training_step(self, batch, batch_idx):
+        x, y = batch
+
+        y_hat = self(x)
+
+        loss = nn.functional.cross_entropy(y_hat.view(-1, self.vocab_size), y.reshape(-1), reduction="mean", ignore_index=3)
+
+        self.log("train_loss", loss, logger=True)
+        self.log("pp", torch.exp(loss), logger=True)
+        self.log("bsz", float(x.shape[0]), logger=True)
+        self.log("wpb", float(x.shape[0] * x.shape[1]), logger=True)
+
+        self.log(
+            "train_loss_epoch",
+            loss,
+            on_step=False,
+            on_epoch=True,
+            prog_bar=True,
+            logger=True,
+            sync_dist=True,
+        )
+
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        x, y = batch
+        y_hat = self(x)
+        loss = nn.functional.cross_entropy(y_hat.view(-1, self.vocab_size), y.reshape(-1), reduction="mean", ignore_index=3)
+
+        self.log("val_loss", loss, prog_bar=True, sync_dist=True)
+        self.log("val_pp", torch.exp(loss), sync_dist=True)
+
+    def configure_optimizers(self):
+
+        optimizer = apex.optimizers.FusedAdam(
+            self.parameters(),
+            lr=self.learning_rate,
+            weight_decay=1e-2,
+            betas=(0.9, 0.98),
+            eps=1e-6,
+        )
+        lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
+            optimizer=optimizer, lr_lambda=self.rate
+        )
+
+        return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
+
+    def rate(self, current_step):
+        # num_cycles = 0.5
+        # num_training_steps = 15000
+        # if current_step < self.warmup:
+        #     return float(current_step) / float(max(1, self.warmup))
+        # elif current_step > num_training_steps:
+        #     return 1e-3
+        # progress = float(current_step - self.warmup) / float(max(1, num_training_steps - self.warmup))
+        # return max(1e-3, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress)))
+
+        if current_step == 0:
+            current_step = 1
+        return self.lr_factor * (
+            self.d_model ** (-0.5)
+            * min(current_step ** (-0.5), current_step * self.warmup ** (-1.5))
+        )
+
+    # def training_epoch_end(self, training_step_outputs):
+    #     start_seed = random.randint(0, self.datamodule.train_dataset.context + 1)
+    #     self.datamodule.train_dataset.start_seed=start_seed
 
     # def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
     #     pass
