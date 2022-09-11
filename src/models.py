@@ -125,7 +125,6 @@ class EncoderModel(pl.LightningModule):
         )
 
         self.linear = nn.Linear(self.d_model, self.vocab_size, bias=True)
-        # self.embedding.weight = self.linear.weight # Share embeddings
 
         self.decoder = nn.Sequential(
             self.linear,
@@ -138,7 +137,6 @@ class EncoderModel(pl.LightningModule):
         x = self.encoder(x, src_key_padding_mask=mask)
         x = self.dropout(x)
 
-        # x = x.nanmean(-2) # Pooling
         x = x[:, -1, :]
         x = self.decoder(x)
 
@@ -185,9 +183,6 @@ class EncoderModel(pl.LightningModule):
             betas=(0.9, 0.98),
             eps=1e-6,
         )
-        # lr_scheduler = torch.optim.lr_scheduler.CosineAnnealingWarmRestarts(
-        #     optimizer, T_0=2000, T_mult=2
-        # )
         lr_scheduler = torch.optim.lr_scheduler.LambdaLR(
             optimizer=optimizer, lr_lambda=self.rate
         )

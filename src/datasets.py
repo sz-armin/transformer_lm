@@ -6,7 +6,7 @@ from torch.utils.data import random_split, DataLoader
 from typing import Optional
 
 
-class TrainDataSet(torch.utils.data.Dataset):
+class EncoderTrainDataSet(torch.utils.data.Dataset):
     def __init__(self, file_path, locs_path, num_workers):
         super().__init__()
         self.num_workers = num_workers
@@ -33,8 +33,34 @@ class TrainDataSet(torch.utils.data.Dataset):
         )
         return arr
 
+class DecoderTrainDataSet(torch.utils.data.Dataset):
+    def __init__(self, file_path, num_workers):
+        super().__init__()
+        self.num_workers = num_workers
+        self.sample_locs = np.load(locs_path)
+        self.file_handles = [open(file_path, "rb") for _ in range(num_workers)]
+        self.file_handles.append(open(file_path, "rb"))
+        self.max_token = 2500
 
-class MainDataModule(pl.LightningDataModule):
+    def __len__(self):
+        return len(self.sample_locs)
+
+    def __getitem__(self, idx):
+        worker_info = torch.utils.data.get_worker_info()
+        if worker_info is None:
+            worker_id = 0
+        else:
+            worker_id = worker_info.id
+        self.file_handles[worker_id].seek(self.sample_locs[idx])
+        count = int.from_bytes(
+            self.file_handles[worker_id].read(2), byteorder=sys.byteorder, signed=False
+        )
+        arr = np.frombuffer(
+            self.file_handles[worker_id].read(count * 4), count=count, dtype=np.int32
+        )
+        return arr
+
+class EncoderDataModule(pl.LightningDataModule):
     def __init__(self, dataset: torch.utils.data.Dataset, train_bsz: int = 4):
         super().__init__()
         self.dataset = dataset
@@ -48,7 +74,7 @@ class MainDataModule(pl.LightningDataModule):
 
     def setup(self, stage: Optional[str] = None):
         if stage == "fit" or stage is None:
-            train_len = int(len(self.dataset) * 0.95)
+            train_len = int(len(self.dataset) * 0.80)
             self.dataset_train, self.dataset_val = random_split(
                 self.dataset,
                 [train_len, len(self.dataset) - train_len],
