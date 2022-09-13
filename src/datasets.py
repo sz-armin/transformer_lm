@@ -139,9 +139,9 @@ class DecoderDataSet(torch.utils.data.Dataset):
     def __init__(self, file_path):
         super().__init__()
         self.data= np.fromfile(file_path, sep=" ", dtype=np.int64)
-        self.context = 512 +1
+        self.context = 256 +1
         # self.start_seed=random.randint(0, self.context + 1)
-        self.start_seed=0
+        self.start_seed=random.randint(0, self.context)
 
     def __len__(self):
         return (len(self.data)-self.start_seed)//self.context
@@ -186,7 +186,7 @@ class DecoderDataModule(pl.LightningDataModule):
             # collate_fn=self._collate_wrapper,
             num_workers=self.num_workers,
             shuffle=True,
-            persistent_workers=True,
+            persistent_workers=False,
             prefetch_factor=4,
         )
 
@@ -196,7 +196,7 @@ class DecoderDataModule(pl.LightningDataModule):
             batch_size=self.train_bsz,
             # collate_fn=self._collate_wrapper,
             num_workers=self.num_workers,
-            persistent_workers=True,
+            persistent_workers=False,
             prefetch_factor=4,
         )
 
@@ -233,7 +233,7 @@ class DecoderDataModule(pl.LightningDataModule):
 
         return batch[:, :-1], batch[:, 1:]
 
-    # def _collate_wrapper(self, batch):
+    def _collate_wrapper(self, batch):
     #     # TODO filter large batches
     #     b_max_len = len(max(batch, key=len))
     #     if b_max_len <= self.max_context:
@@ -253,7 +253,11 @@ class DecoderDataModule(pl.LightningDataModule):
     #     )
     #     # faster right_padding: batch = np.column_stack(list(itertools.zip_longest(*l, fillvalue=3)))
     #     # TODO type
-    #     return torch.as_tensor(batch, dtype=torch.long)
+        try:
+            return torch.as_tensor(np.vstack(batch), dtype=torch.long)
+        except:
+            print(batch)
+            raise
 
 
 class TestDataSet(torch.utils.data.Dataset):

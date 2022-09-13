@@ -1,4 +1,4 @@
-import torch, random
+import torch, random, math
 from torch import nn
 import pytorch_lightning as pl
 import apex
@@ -208,18 +208,19 @@ class EncoderModel(pl.LightningModule):
 
     # def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
     #     pass
-        # optimizer.zero_grad(set_to_none=True)
+    # optimizer.zero_grad(set_to_none=True)
 
 
 class DecoderModel(pl.LightningModule):
     def __init__(
         self,
-        learning_rate=1e-4,
+        learning_rate=1e-3,
         d_model=1024,
-        vocab_size=8000,
-        dropout=0.1,
+        vocab_size=64000,
+        dropout=0.0,
         warmup=1000,
-        lr_factor=1,
+        lr_factor=2,
+        max_steps=5050,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -227,6 +228,7 @@ class DecoderModel(pl.LightningModule):
         self.learning_rate = learning_rate
         self.warmup = warmup
         self.lr_factor = lr_factor
+        self.max_steps = max_steps
         self.dropout_rate = dropout
         self.d_model = d_model
         self.vocab_size = vocab_size
@@ -246,7 +248,7 @@ class DecoderModel(pl.LightningModule):
             dropout=self.dropout_rate,
             norm_first=True,  # Disable Fast Path for AMP compatibility
             batch_first=True,
-            activation="gelu",
+            activation=nn.Mish(),
         )
         self.decoder = nn.TransformerEncoder(
             self.decoder_layer,
@@ -254,17 +256,20 @@ class DecoderModel(pl.LightningModule):
             num_layers=24,
         )
 
-        self.linear = nn.Linear(self.d_model, self.vocab_size, bias=True)
-        # self.embedding.weight = self.linear.weight
+        self.linear = nn.Linear(self.d_model, self.vocab_size, bias=False)
+        self.embedding.weight = self.linear.weight
 
         self.linear = nn.Sequential(
             self.linear,
         )
 
     def forward(self, x):
-        casual_mask = torch.triu(torch.ones(x.shape[1],x.shape[1], dtype=torch.bool, device=x.device.type), diagonal=1)
+        casual_mask = torch.triu(
+            torch.ones(x.shape[1], x.shape[1], dtype=torch.bool, device=x.device.type),
+            diagonal=1,
+        )
 
-        x = self.dropout(self.embedding(x)) + self.dropout(self.pos_emb(x))
+        x = self.dropout(self.embedding(x) + self.pos_emb(x))
         x = self.decoder(x, mask=casual_mask)
         x = self.dropout(x)
 
@@ -277,7 +282,12 @@ class DecoderModel(pl.LightningModule):
 
         y_hat = self(x)
 
-        loss = nn.functional.cross_entropy(y_hat.view(-1, self.vocab_size), y.reshape(-1), reduction="mean", ignore_index=3)
+        loss = nn.functional.cross_entropy(
+            y_hat.view(-1, self.vocab_size),
+            y.reshape(-1),
+            reduction="mean",
+            ignore_index=3,
+        )
 
         self.log("train_loss", loss, logger=True)
         self.log("pp", torch.exp(loss), logger=True)
@@ -299,7 +309,12 @@ class DecoderModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         x, y = batch
         y_hat = self(x)
-        loss = nn.functional.cross_entropy(y_hat.view(-1, self.vocab_size), y.reshape(-1), reduction="mean", ignore_index=3)
+        loss = nn.functional.cross_entropy(
+            y_hat.view(-1, self.vocab_size),
+            y.reshape(-1),
+            reduction="mean",
+            ignore_index=3,
+        )
 
         self.log("val_loss", loss, prog_bar=True, sync_dist=True)
         self.log("val_pp", torch.exp(loss), sync_dist=True)
@@ -329,12 +344,17 @@ class DecoderModel(pl.LightningModule):
         # progress = float(current_step - self.warmup) / float(max(1, num_training_steps - self.warmup))
         # return max(1e-3, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress)))
 
-        if current_step == 0:
-            current_step = 1
-        return self.lr_factor * (
-            self.d_model ** (-0.5)
-            * min(current_step ** (-0.5), current_step * self.warmup ** (-1.5))
-        )
+        # if current_step == 0:
+        #     current_step = 1
+        # return self.lr_factor * (
+        #     self.d_model ** (-0.5)
+        #     * min(current_step ** (-0.5), current_step * self.warmup ** (-1.5))
+        # )
+
+        if current_step < self.warmup:
+            return float(current_step) / float(self.warmup)
+        else:
+            return (math.cos((10 * current_step) / (math.pi * self.max_steps) + self.warmup) + 1) / 2
 
     # def training_epoch_end(self, training_step_outputs):
     #     start_seed = random.randint(0, self.datamodule.train_dataset.context + 1)
@@ -342,4 +362,4 @@ class DecoderModel(pl.LightningModule):
 
     # def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
     #     pass
-        # optimizer.zero_grad(set_to_none=True)
+    # optimizer.zero_grad(set_to_none=True)
