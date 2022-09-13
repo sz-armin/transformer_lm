@@ -138,7 +138,8 @@ class EncoderDataModule(pl.LightningDataModule):
 class DecoderDataSet(torch.utils.data.Dataset):
     def __init__(self, file_path):
         super().__init__()
-        self.data= np.fromfile(file_path, sep=" ", dtype=np.int64)
+        # self.data= np.fromfile(file_path, sep=" ", dtype=np.int64)
+        self.data = np.load(file_path)
         self.context = 256 +1
         # self.start_seed=random.randint(0, self.context + 1)
         self.start_seed=random.randint(0, self.context)
@@ -233,7 +234,7 @@ class DecoderDataModule(pl.LightningDataModule):
 
         return batch[:, :-1], batch[:, 1:]
 
-    def _collate_wrapper(self, batch):
+    # def _collate_wrapper(self, batch):
     #     # TODO filter large batches
     #     b_max_len = len(max(batch, key=len))
     #     if b_max_len <= self.max_context:
@@ -253,11 +254,11 @@ class DecoderDataModule(pl.LightningDataModule):
     #     )
     #     # faster right_padding: batch = np.column_stack(list(itertools.zip_longest(*l, fillvalue=3)))
     #     # TODO type
-        try:
-            return torch.as_tensor(np.vstack(batch), dtype=torch.long)
-        except:
-            print(batch)
-            raise
+        # try:
+        #     return torch.as_tensor(np.vstack(batch), dtype=torch.long)
+        # except:
+        #     print(batch)
+        #     raise
 
 
 class TestDataSet(torch.utils.data.Dataset):

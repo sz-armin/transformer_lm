@@ -1,4 +1,4 @@
-import torch, random, math
+import torch, math
 from torch import nn
 import pytorch_lightning as pl
 import apex
@@ -210,17 +210,17 @@ class EncoderModel(pl.LightningModule):
     #     pass
     # optimizer.zero_grad(set_to_none=True)
 
-
+# 25934 2h
 class DecoderModel(pl.LightningModule):
     def __init__(
         self,
         learning_rate=1e-3,
         d_model=1024,
         vocab_size=64000,
-        dropout=0.0,
-        warmup=1000,
+        dropout=0.1,
+        warmup=16000,
         lr_factor=2,
-        max_steps=5050,
+        max_steps=130000,
     ):
         super().__init__()
         self.save_hyperparameters()
@@ -234,7 +234,7 @@ class DecoderModel(pl.LightningModule):
         self.vocab_size = vocab_size
 
         self.dropout = nn.Dropout(self.dropout_rate)
-        self.layernorm = apex.normalization.FusedLayerNorm(self.d_model)
+        self.layernorm = apex.normalization.FusedRMSNorm(self.d_model)
 
         self.embedding = nn.Embedding(
             self.vocab_size, self.d_model, padding_idx=3, scale_grad_by_freq=False
@@ -354,7 +354,12 @@ class DecoderModel(pl.LightningModule):
         if current_step < self.warmup:
             return float(current_step) / float(self.warmup)
         else:
-            return (math.cos((10 * current_step) / (math.pi * self.max_steps) + self.warmup) + 1) / 2
+            return (
+                math.cos(
+                    (10 * (current_step-self.warmup)) / (math.pi * (self.max_steps - self.warmup))
+                )
+                + 1
+            ) / 2
 
     # def training_epoch_end(self, training_step_outputs):
     #     start_seed = random.randint(0, self.datamodule.train_dataset.context + 1)
