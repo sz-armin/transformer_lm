@@ -136,10 +136,12 @@ class EncoderDataModule(pl.LightningDataModule):
         return torch.as_tensor(batch, dtype=torch.long)
 
 class DecoderDataSet(torch.utils.data.Dataset):
-    def __init__(self, file_path):
+    def __init__(self, file_path, is_npy=False):
         super().__init__()
-        # self.data= np.fromfile(file_path, sep=" ", dtype=np.int64)
-        self.data = np.load(file_path)
+        if is_npy:
+            self.data = np.load(file_path)
+        else:
+            self.data= np.fromfile(file_path, sep=" ", dtype=np.int64)
         self.context = 256 +1
         # self.start_seed=random.randint(0, self.context + 1)
         self.start_seed=random.randint(0, self.context)

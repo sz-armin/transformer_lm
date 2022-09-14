@@ -17,13 +17,13 @@ class Randomizer(pl.Callback):
 
 if __name__ == "__main__":
     main_dm = datasets.DecoderDataModule(
-        datasets.DecoderDataSet("data/ru_small_id.txt"),
+        datasets.DecoderDataSet("data/ru_small_id.npy", True),
         datasets.DecoderDataSet("data/dev_id.txt"),
-        train_bsz=40,
+        train_bsz=70,
         num_workers=16,
     )
 
-    decoder_model = models.DecoderModel(vocab_size=64000, learning_rate=4e-4)
+    decoder_model = models.DecoderModel(vocab_size=64000, learning_rate=2e-4)
 
     lr_monitor = LearningRateMonitor(logging_interval="step")
     device_stats = DeviceStatsMonitor()
@@ -38,10 +38,10 @@ if __name__ == "__main__":
 
     decoder_trainer = pl.Trainer(
         # fast_dev_run=1,
-        max_epochs=5,
+        max_epochs=10,
         accelerator="gpu",
-        devices=[0, 1, 2, 3],
-        strategy=DDPStrategy(static_graph=True, find_unused_parameters=False),
+        devices=[4, 5, 6, 7],
+        strategy="deepspeed_stage_2",
         callbacks=[lr_monitor, checkpoint_callback, Randomizer(), device_stats],
         # callbacks=[lr_monitor, Randomizer()],
         log_every_n_steps=100,
@@ -56,5 +56,5 @@ if __name__ == "__main__":
     decoder_trainer.fit(
         model=decoder_model,
         datamodule=main_dm,
-        # ckpt_path="/home/is/armin-sa/Projects/lm/data/checkpoints/epoch=4-step=162534.ckpt",
+        # ckpt_path="/home/is/armin-sa/Projects/lm/data/checkpoints_dec/last.ckpt",
     )

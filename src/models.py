@@ -210,7 +210,7 @@ class EncoderModel(pl.LightningModule):
     #     pass
     # optimizer.zero_grad(set_to_none=True)
 
-# 25934 2h
+# 14834 1:42h
 class DecoderModel(pl.LightningModule):
     def __init__(
         self,
@@ -218,9 +218,9 @@ class DecoderModel(pl.LightningModule):
         d_model=1024,
         vocab_size=64000,
         dropout=0.1,
-        warmup=16000,
+        warmup=15000,
         lr_factor=2,
-        max_steps=130000,
+        max_steps=150000,
     ):
         super().__init__()
         self.save_hyperparameters()
