@@ -17,7 +17,7 @@ class Randomizer(pl.Callback):
 
 if __name__ == "__main__":
     main_dm = datasets.DecoderDataModule(
-        datasets.DecoderDataSet("data/ru_small_id.npy", True),
+        datasets.DecoderDataSet("data/ru_small_id-2.npy", True),
         datasets.DecoderDataSet("data/dev_id.txt"),
         train_bsz=70,
         num_workers=16,
@@ -56,5 +56,6 @@ if __name__ == "__main__":
     decoder_trainer.fit(
         model=decoder_model,
         datamodule=main_dm,
-        # ckpt_path="/home/is/armin-sa/Projects/lm/data/checkpoints_dec/last.ckpt",
+        ckpt_path="/home/is/armin-sa/Projects/lm/data/checkpoints_dec/last.ckpt",
     )
+

@@ -217,7 +217,7 @@ class DecoderModel(pl.LightningModule):
         learning_rate=1e-3,
         d_model=1024,
         vocab_size=64000,
-        dropout=0.1,
+        dropout=0.0,
         warmup=15000,
         lr_factor=2,
         max_steps=150000,
@@ -318,6 +318,23 @@ class DecoderModel(pl.LightningModule):
 
         self.log("val_loss", loss, prog_bar=True, sync_dist=True)
         self.log("val_pp", torch.exp(loss), sync_dist=True)
+
+    def test_step(self, batch, batch_idx):
+        x, y = batch[:, :-1], batch[:, 1:]
+        y_hat = self(x)
+        loss = nn.functional.cross_entropy(
+            y_hat.view(-1, self.vocab_size),
+            y.reshape(-1),
+            reduction="mean",
+            ignore_index=3,
+        )
+        return loss
+
+    def test_epoch_end(self, outputs):
+        loss = torch.stack(outputs).mean().item()
+        print(loss)
+        return loss
+        
 
     def configure_optimizers(self):
 
