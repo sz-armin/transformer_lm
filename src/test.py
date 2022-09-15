@@ -1,16 +1,25 @@
 import torch
+import pytorch_lightning as pl
+import src.models as models
+import src.datasets as datasets
 
-device = torch.device("cuda")
+checkpoint_path = "/home/is/armin-sa/Projects/lm/e7.ckpt"
+test_data_path = "data/ru_small_id-3.npy"
 
-x = torch.randn(4, 1, 16).to(device=device)
+decoder_model = models.DecoderModel(vocab_size=64000).load_from_checkpoint(
+    checkpoint_path, strict=False
+)
 
-encoder_layer = torch.nn.TransformerEncoderLayer(
-    d_model=16,
-    nhead=1,
-    batch_first=True,
-    dropout=0.1).to(device=device)
-encoder_layer.eval()
 
-with torch.inference_mode():
-    with torch.autocast("cuda", dtype=torch.float16):
-        y = encoder_layer(x)
+decoder_trainer = pl.Trainer(
+    limit_test_batches=0.05,
+    accelerator="gpu",
+    devices=1,
+)
+
+decoder_trainer.test(
+    model=decoder_model,
+    dataloaders=torch.utils.data.DataLoader(
+        datasets.DecoderDataSet(test_data_path, True)
+    ),
+)

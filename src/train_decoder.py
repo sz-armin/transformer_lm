@@ -1,7 +1,5 @@
 import pytorch_lightning as pl
-import datasets
-import models, random
-from pytorch_lightning.strategies import DDPStrategy
+import models, random, datasets
 from pytorch_lightning.callbacks import (
     LearningRateMonitor,
     ModelCheckpoint,
@@ -37,17 +35,14 @@ if __name__ == "__main__":
     )
 
     decoder_trainer = pl.Trainer(
-        # fast_dev_run=1,
         max_epochs=10,
         accelerator="gpu",
         devices=[4, 5, 6, 7],
         strategy="deepspeed_stage_2",
         callbacks=[lr_monitor, checkpoint_callback, Randomizer(), device_stats],
-        # callbacks=[lr_monitor, Randomizer()],
         log_every_n_steps=100,
         precision=16,
         val_check_interval=0.25,
-        # max_time="00:38:30:00",
         gradient_clip_val=1,
         enable_checkpointing=True,
         reload_dataloaders_every_n_epochs=1,
@@ -58,4 +53,3 @@ if __name__ == "__main__":
         datamodule=main_dm,
         ckpt_path="/home/is/armin-sa/Projects/lm/data/checkpoints_dec/epoch=6-step=101738.ckpt",
     )
-

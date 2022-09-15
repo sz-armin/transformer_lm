@@ -1,6 +1,5 @@
 import pytorch_lightning as pl
-import datasets
-import models
+import datasets, models
 from pytorch_lightning.strategies import DDPStrategy
 from pytorch_lightning.callbacks import (
     LearningRateMonitor,

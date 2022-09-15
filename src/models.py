@@ -1,8 +1,6 @@
-import torch, math
+import torch, apex, math
 from torch import nn
 import pytorch_lightning as pl
-import apex
-
 
 class LearnedPosEmbedding(nn.Module):
     def __init__(self, num_embeddings=1026, embedding_dim=512):
@@ -33,7 +31,7 @@ class BaselineModel(pl.LightningModule):
         )
         self.w = nn.Parameter(
             torch.zeros(self.embedding.weight.shape), requires_grad=True
-        )  # why can't we reuse the weights?
+        )
 
     def forward(self, x):
         res = self.encoder(self.embedding(x)).mean(-2) @ self.w.T
@@ -41,9 +39,6 @@ class BaselineModel(pl.LightningModule):
         return res
 
     def training_step(self, batch, batch_idx):
-        # x, y = batch[:,:-1], batch[:,-1]
-        # y = y.unsqueeze(-1).float()
-
         x, y = batch
 
         y = nn.functional.one_hot(
@@ -190,15 +185,6 @@ class EncoderModel(pl.LightningModule):
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     def rate(self, current_step):
-        # num_cycles = 0.5
-        # num_training_steps = 15000
-        # if current_step < self.warmup:
-        #     return float(current_step) / float(max(1, self.warmup))
-        # elif current_step > num_training_steps:
-        #     return 1e-3
-        # progress = float(current_step - self.warmup) / float(max(1, num_training_steps - self.warmup))
-        # return max(1e-3, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress)))
-
         if current_step == 0:
             current_step = 1
         return self.lr_factor * (
@@ -206,11 +192,7 @@ class EncoderModel(pl.LightningModule):
             * min(current_step ** (-0.5), current_step * self.warmup ** (-1.5))
         )
 
-    # def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
-    #     pass
-    # optimizer.zero_grad(set_to_none=True)
 
-# 14834 1:42h
 class DecoderModel(pl.LightningModule):
     def __init__(
         self,
@@ -219,7 +201,6 @@ class DecoderModel(pl.LightningModule):
         vocab_size=64000,
         dropout=0.0,
         warmup=15000,
-        lr_factor=2,
         max_steps=150000,
     ):
         super().__init__()
@@ -227,7 +208,6 @@ class DecoderModel(pl.LightningModule):
 
         self.learning_rate = learning_rate
         self.warmup = warmup
-        self.lr_factor = lr_factor
         self.max_steps = max_steps
         self.dropout_rate = dropout
         self.d_model = d_model
@@ -334,7 +314,6 @@ class DecoderModel(pl.LightningModule):
         loss = torch.stack(outputs).mean().item()
         print(loss)
         return loss
-        
 
     def configure_optimizers(self):
 
@@ -352,36 +331,13 @@ class DecoderModel(pl.LightningModule):
         return [optimizer], [{"scheduler": lr_scheduler, "interval": "step"}]
 
     def rate(self, current_step):
-        # num_cycles = 0.5
-        # num_training_steps = 15000
-        # if current_step < self.warmup:
-        #     return float(current_step) / float(max(1, self.warmup))
-        # elif current_step > num_training_steps:
-        #     return 1e-3
-        # progress = float(current_step - self.warmup) / float(max(1, num_training_steps - self.warmup))
-        # return max(1e-3, 0.5 * (1.0 + math.cos(math.pi * float(num_cycles) * 2.0 * progress)))
-
-        # if current_step == 0:
-        #     current_step = 1
-        # return self.lr_factor * (
-        #     self.d_model ** (-0.5)
-        #     * min(current_step ** (-0.5), current_step * self.warmup ** (-1.5))
-        # )
-
         if current_step < self.warmup:
             return float(current_step) / float(self.warmup)
         else:
             return (
                 math.cos(
-                    (10 * (current_step-self.warmup)) / (math.pi * (self.max_steps - self.warmup))
+                    (10 * (current_step - self.warmup))
+                    / (math.pi * (self.max_steps - self.warmup))
                 )
                 + 1
             ) / 2
-
-    # def training_epoch_end(self, training_step_outputs):
-    #     start_seed = random.randint(0, self.datamodule.train_dataset.context + 1)
-    #     self.datamodule.train_dataset.start_seed=start_seed
-
-    # def optimizer_zero_grad(self, epoch, batch_idx, optimizer, optimizer_idx):
-    #     pass
-    # optimizer.zero_grad(set_to_none=True)
