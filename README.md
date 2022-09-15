@@ -1,3 +1,10 @@
+# Requirements
+
+- `pytorch`
+- `pytorch-lightning`
+- `apex`
+- `sentencepiece`
+
 # How to test
 
 - Set the appropriate paths in `prep/test_prep.sh` and run it to get the preprocessed test data `test_id.txt`.
