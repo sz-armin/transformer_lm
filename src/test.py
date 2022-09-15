@@ -4,7 +4,7 @@ import src.models as models
 import src.datasets as datasets
 
 checkpoint_path = "/home/is/armin-sa/Projects/lm/e7.ckpt"
-test_data_path = "data/ru_small_id-3.npy"
+test_data_path = "/home/is/armin-sa/Projects/lm/test_id.txt"
 
 decoder_model = models.DecoderModel(vocab_size=64000).load_from_checkpoint(
     checkpoint_path, strict=False
