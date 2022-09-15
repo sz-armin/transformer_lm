@@ -51,5 +51,5 @@ if __name__ == "__main__":
     decoder_trainer.fit(
         model=decoder_model,
         datamodule=main_dm,
-        ckpt_path="/home/is/armin-sa/Projects/lm/data/checkpoints_dec/epoch=6-step=101738.ckpt",
+        ckpt_path="data/checkpoints_dec/epoch=7-step=116272.ckpt",
     )

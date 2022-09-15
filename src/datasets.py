@@ -135,7 +135,7 @@ class EncoderDataModule(pl.LightningDataModule):
 
 
 class DecoderDataSet(torch.utils.data.Dataset):
-    def __init__(self, file_path, is_npy=False):
+    def __init__(self, file_path, is_npy=False, all=False):
         super().__init__()
         if is_npy:
             self.data = np.load(file_path)
@@ -143,6 +143,8 @@ class DecoderDataSet(torch.utils.data.Dataset):
             self.data = np.fromfile(file_path, sep=" ", dtype=np.int64)
         self.context = 256 + 1
         self.start_seed = random.randint(0, self.context)
+        if all:
+            self.start_seed = 0
 
     def __len__(self):
         return (len(self.data) - self.start_seed) // self.context

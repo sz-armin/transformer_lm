@@ -1,6 +1,8 @@
 #!/bin/bash
 
+# Test data
 FPATH="data/dev.txt"
+# sentencepeace model
 MPATH="/home/is/armin-sa/Projects/lm/data/spm_dec/spm_dec.model"
 
 sed -e 's/^$/▮/' $FPATH > tmp.txt

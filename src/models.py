@@ -312,8 +312,8 @@ class DecoderModel(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
         loss = torch.stack(outputs).mean().item()
-        print(loss)
-        return loss
+        print(math.exp(loss))
+        return math.exp(loss)
 
     def configure_optimizers(self):
 
