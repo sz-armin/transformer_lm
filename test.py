@@ -6,11 +6,11 @@ import math
 import src.models as models
 import src.datasets as datasets
 
-decoder_model = models.DecoderModel(vocab_size=64000).load_from_checkpoint("/home/is/armin-sa/Projects/lm/e5.ckpt", strict=False)
+decoder_model = models.DecoderModel(vocab_size=64000).load_from_checkpoint("/home/is/armin-sa/Projects/lm/e7.ckpt", strict=False)
 
 
 decoder_trainer = pl.Trainer(
-    limit_test_batches=0.001,
+    limit_test_batches=0.05,
     accelerator="gpu",
     devices=1,
     )
