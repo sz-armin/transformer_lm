@@ -1,11 +1,15 @@
-# Requirements
+# Transforemr Language Models
+
+Transformer-based Encoder- (BERT-like) and decoder- (GPT-like) only language models implemented in Pytorch. 
+
+## Requirements
 
 - `pytorch`
 - `pytorch-lightning`
 - `apex`
 - `sentencepiece`
 
-# How to test
+## How to test
 
 - Set the appropriate paths in `prep/test_prep.sh` and run it to get the preprocessed test data `test_id.txt`.
 - Set the appropriate paths in `src/test.py` and run it to get the perplexity.
